@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { ChevronRight, CheckCircle, XCircle, RotateCcw, BookOpen, Brain, List, Lock, Crown, User, Mail, LogIn, UserPlus, LogOut } from "lucide-react";
+import { Analytics } from "@vercel/analytics/react";
 
 // localStorage storage shim (replaces window.storage for real-world deployment)
 const ls = {
@@ -1308,6 +1309,7 @@ export default function SpecterLSATApp() {
         </div>
       </div>
       {showPaywall&&<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"><div className="bg-white rounded-2xl max-w-md w-full p-8 shadow-2xl text-center"><Crown className="w-16 h-16 text-yellow-500 mx-auto mb-4"/><h2 className="text-2xl font-bold text-gray-800 mb-2">Unlock Premium Explanations</h2><p className="text-gray-600 mb-6">Get detailed explanations for every answer</p><div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white mb-6"><div className="text-5xl font-bold">$45</div><div>per month</div></div><button onClick={()=>upgrade(true)} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 mb-3">Subscribe - $45/month</button><button onClick={()=>setShowPaywall(false)} className="w-full bg-gray-200 text-gray-700 py-3 rounded-lg font-semibold">Maybe Later</button></div></div>}
+      <Analytics />
     </div>
   );
 }
