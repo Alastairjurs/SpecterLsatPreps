@@ -6,6 +6,20 @@ const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 const TEST_PRICE_ID = 'price_1TF29Z3OTgrWIp2P7mavRtpM';
 const PREMIUM_PRICE_ID = 'price_1TF2BL3OTgrWIp2Pl94Yt01j';
 
+// Disable Vercel's body parser for this route
+export const config = {
+  api: { bodyParser: false },
+};
+
+async function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on('data', chunk => chunks.push(chunk));
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
 async function updateUserInSupabase(email, isPremium, hasTestAccess) {
   try {
     const res = await fetch(`${SUPABASE_URL}/rest/v1/users?email=eq.${encodeURIComponent(email)}`, {
@@ -34,23 +48,12 @@ module.exports = async function handler(req, res) {
   const sig = req.headers['stripe-signature'];
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-  if (!webhookSecret) {
-    console.error('STRIPE_WEBHOOK_SECRET not set');
-    return res.status(500).json({ error: 'Webhook secret not configured' });
-  }
-
-  if (!process.env.STRIPE_SECRET_KEY) {
-    console.error('STRIPE_SECRET_KEY not set');
-    return res.status(500).json({ error: 'Stripe key not configured' });
-  }
+  if (!webhookSecret) return res.status(500).json({ error: 'Webhook secret not configured' });
+  if (!process.env.STRIPE_SECRET_KEY) return res.status(500).json({ error: 'Stripe key not configured' });
 
   let event;
   try {
-    // Vercel provides req.body as a buffer when bodyParser is disabled
-    const rawBody = req.body;
-    if (!rawBody) {
-      return res.status(400).json({ error: 'No body received' });
-    }
+    const rawBody = await getRawBody(req);
     event = stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
   } catch (err) {
     console.error('Webhook signature error:', err.message);
@@ -64,30 +67,22 @@ module.exports = async function handler(req, res) {
       const session = event.data.object;
       const customerEmail = session.customer_details?.email;
       console.log(`Checkout completed for: ${customerEmail}`);
-
-      if (!customerEmail) {
-        return res.status(200).json({ received: true });
-      }
+      if (!customerEmail) return res.status(200).json({ received: true });
 
       const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
       const priceId = lineItems.data[0]?.price?.id;
       console.log(`Price ID: ${priceId}`);
 
       const isPremium = priceId === PREMIUM_PRICE_ID;
-      const hasTestAccess = true; // all paying customers get test access
-
-      await updateUserInSupabase(customerEmail, isPremium, hasTestAccess);
+      await updateUserInSupabase(customerEmail, isPremium, true);
     }
 
     if (event.type === 'customer.subscription.updated') {
       const subscription = event.data.object;
       const customer = await stripe.customers.retrieve(subscription.customer);
-      const email = customer.email;
       const priceId = subscription.items.data[0]?.price?.id;
-      const isActive = subscription.status === 'active';
-      if (isActive) {
-        const isPremium = priceId === PREMIUM_PRICE_ID;
-        await updateUserInSupabase(email, isPremium, true);
+      if (subscription.status === 'active') {
+        await updateUserInSupabase(customer.email, priceId === PREMIUM_PRICE_ID, true);
       }
     }
 
