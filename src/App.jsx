@@ -396,16 +396,20 @@ export default function SpecterLSATApp() {
         setUser(u);
         setShowHome(false);
         // Load progress from Supabase
-        sb.getUserData(u.username, 'completed').then(d => { if (d) setCompleted(JSON.parse(d)); }).catch(() => {});
-        sb.getUserData(u.username, 'testHistory').then(d => { if (d) setTestHistory(JSON.parse(d)); }).catch(() => {});
-        sb.getUserData(u.username, 'drillMissed').then(d => { if (d) setDrillMissed(JSON.parse(d)); }).catch(() => {});
-        // Also load from localStorage as fallback
+        // Load from localStorage first (instant), then override with Supabase (authoritative)
         ls.get("ct_" + u.username).then(t => { if (t && t.value) setCompleted(JSON.parse(t.value)); }).catch(() => {});
         ls.get("th_" + u.username).then(t => { if (t && t.value) setTestHistory(JSON.parse(t.value)); }).catch(() => {});
         ls.get("dm_" + u.username).then(t => { if (t && t.value) setDrillMissed(JSON.parse(t.value)); }).catch(() => {});
         ls.get("ach_" + u.username).then(t => { if (t && t.value) setAchievements(JSON.parse(t.value)); }).catch(() => {});
-        ls.get("tqa_" + u.username).then(t => { if (t && t.value) setTotalQAnswered(JSON.parse(t.value)); }).catch(() => {});
+        ls.get("tqa_" + u.username).then(t => { if (t && t.value) setTotalQAnswered(parseInt(t.value) || 0); }).catch(() => {});
         ls.get("art_" + u.username).then(t => { if (t && t.value) setArticlesRead(JSON.parse(t.value)); }).catch(() => {});
+        // Then load from Supabase (may be more up to date)
+        sb.getUserData(u.username, 'completed').then(d => { if (d) setCompleted(JSON.parse(d)); }).catch(() => {});
+        sb.getUserData(u.username, 'testHistory').then(d => { if (d) setTestHistory(JSON.parse(d)); }).catch(() => {});
+        sb.getUserData(u.username, 'drillMissed').then(d => { if (d) setDrillMissed(JSON.parse(d)); }).catch(() => {});
+        sb.getUserData(u.username, 'achievements').then(d => { if (d) setAchievements(JSON.parse(d)); }).catch(() => {});
+        sb.getUserData(u.username, 'totalQAnswered').then(d => { if (d) setTotalQAnswered(parseInt(d) || 0); }).catch(() => {});
+        sb.getUserData(u.username, 'articlesRead').then(d => { if (d) setArticlesRead(JSON.parse(d)); }).catch(() => {});
       }
     }).catch(() => {});
   }, []);
@@ -467,6 +471,9 @@ export default function SpecterLSATApp() {
         try { const d = await sb.getUserData(username, 'completed'); if (d) setCompleted(JSON.parse(d)); } catch(e) {}
         try { const d = await sb.getUserData(username, 'testHistory'); if (d) setTestHistory(JSON.parse(d)); } catch(e) {}
         try { const d = await sb.getUserData(username, 'drillMissed'); if (d) setDrillMissed(JSON.parse(d)); } catch(e) {}
+        try { const d = await sb.getUserData(username, 'achievements'); if (d) setAchievements(JSON.parse(d)); } catch(e) {}
+        try { const d = await sb.getUserData(username, 'totalQAnswered'); if (d) setTotalQAnswered(parseInt(d)||0); } catch(e) {}
+        try { const d = await sb.getUserData(username, 'articlesRead'); if (d) setArticlesRead(JSON.parse(d)); } catch(e) {}
         setUser(u); setShowHome(false); setForm({ username: "", email: "", password: "" }); return;
       }
       // Fallback: localStorage
@@ -502,7 +509,7 @@ export default function SpecterLSATApp() {
 
   const doLogout = async () => {
     try { await ls.delete("su"); } catch(e) {}
-    setUser(null); setSection(null); setTestIdx(null); setQIdx(0); setAnswers({}); setShowRes(false); setSelAns(null); setCompleted({}); setTestHistory({}); setDrillMissed([]);
+    setUser(null); setSection(null); setTestIdx(null); setQIdx(0); setAnswers({}); setShowRes(false); setSelAns(null); setCompleted({}); setTestHistory({}); setDrillMissed([]); setAchievements({ firstQuestion: false, firstTest: false, firstArticle: false, q100: false, q1000: false, allQuestions: false, timedLSAT: false }); setTotalQAnswered(0); setArticlesRead([]);
   };
 
   const upgrade = async (premium) => {
