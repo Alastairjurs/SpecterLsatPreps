@@ -37,10 +37,25 @@ const sb = {
   },
   async setUserData(username, key, value) {
     try {
+      // Trim value if too large (Supabase has limits)
+      let v = value;
+      if (typeof v === 'string' && v.length > 400000) {
+        try {
+          const parsed = JSON.parse(v);
+          if (Array.isArray(parsed)) {
+            v = JSON.stringify(parsed.slice(0, 100));
+          }
+        } catch(e) {}
+      }
       await fetch(`${SUPABASE_URL}/rest/v1/user_data`, {
         method: 'POST',
-        headers: { apikey: SUPABASE_ANON_KEY, Authorization: `Bearer ${SUPABASE_ANON_KEY}`, 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates' },
-        body: JSON.stringify({ username, key, value })
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          'Content-Type': 'application/json',
+          Prefer: 'resolution=merge-duplicates'
+        },
+        body: JSON.stringify({ username, key, value: v, updated_at: new Date().toISOString() })
       });
       return true;
     } catch(e) { return false; }
@@ -429,7 +444,12 @@ export default function SpecterLSATApp() {
   useEffect(() => {
     if (user && user.username && drillMissed.length > 0) {
       ls.set("dm_" + user.username, JSON.stringify(drillMissed)).catch(() => {});
-      sb.setUserData(user.username, 'drillMissed', JSON.stringify(drillMissed)).catch(() => {});
+      const lean = drillMissed.slice(0, 150).map(q => ({
+        id: q.id, source: q.source, sourceLabel: q.sourceLabel, date: q.date,
+        passage: q.passage ? q.passage.slice(0, 300) : '',
+        question: q.question, options: q.options, correct: q.correct, chosen: q.chosen
+      }));
+      sb.setUserData(user.username, 'drillMissed', JSON.stringify(lean)).catch(() => {});
     }
   }, [drillMissed, user]);
 
