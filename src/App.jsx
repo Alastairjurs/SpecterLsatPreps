@@ -479,6 +479,19 @@ export default function SpecterLSATApp() {
     if (admin) {
       const u = { username: admin.u, email: admin.email, isPremium: true, hasTestAccess: true, isAdmin: true, createdAt: new Date().toISOString() };
       try { await ls.set("su", JSON.stringify(u)); } catch(e) {}
+      // Ensure admin exists in Supabase so data can be saved/loaded
+      try { await sb.upsertUser({ username: admin.u, email: admin.email, password: admin.p, is_premium: true, has_test_access: true, created_at: new Date().toISOString() }); } catch(e) {}
+      // Load saved progress data for admin
+      try { const d = await sb.getUserData(admin.u, 'drillMissed'); if (d) setDrillMissed(JSON.parse(d)); } catch(e) {}
+      try { const d = await sb.getUserData(admin.u, 'achievements'); if (d) setAchievements(JSON.parse(d)); } catch(e) {}
+      try { const d = await sb.getUserData(admin.u, 'totalQAnswered'); if (d) setTotalQAnswered(parseInt(d)||0); } catch(e) {}
+      try { const d = await sb.getUserData(admin.u, 'articlesRead'); if (d) setArticlesRead(JSON.parse(d)); } catch(e) {}
+      try { const d = await sb.getUserData(admin.u, 'completed'); if (d) setCompleted(JSON.parse(d)); } catch(e) {}
+      try { const d = await sb.getUserData(admin.u, 'testHistory'); if (d) setTestHistory(JSON.parse(d)); } catch(e) {}
+      // Also load from localStorage as instant fallback
+      try { const t = await ls.get("dm_" + admin.u); if (t && t.value) setDrillMissed(JSON.parse(t.value)); } catch(e) {}
+      try { const t = await ls.get("ach_" + admin.u); if (t && t.value) setAchievements(JSON.parse(t.value)); } catch(e) {}
+      try { const t = await ls.get("ct_" + admin.u); if (t && t.value) setCompleted(JSON.parse(t.value)); } catch(e) {}
       setUser(u); setShowHome(false); setForm({ username: "", email: "", password: "" }); return;
     }
     try {
@@ -569,26 +582,18 @@ export default function SpecterLSATApp() {
 
   const Suit = ({ size = 10 }) => (
     <svg className={`w-${size} h-${size}`} viewBox="0 0 40 40" fill="none">
-      {/* Head */}
       <circle cx="20" cy="9" r="6" fill="white" stroke="#f59e0b" strokeWidth="0.5"/>
-      {/* Body/jacket */}
       <path d="M8 38 C8 26 12 22 20 22 C28 22 32 26 32 38 Z" fill="white"/>
-      {/* Sleeves */}
       <rect x="12" y="22" width="4" height="12" rx="2" fill="#e2e8f0"/>
       <rect x="24" y="22" width="4" height="12" rx="2" fill="#e2e8f0"/>
-      {/* Lapels */}
       <polygon points="20,22 13,32 20,32" fill="#94a3b8"/>
       <polygon points="20,22 27,32 20,32" fill="#94a3b8"/>
-      {/* Shirt */}
       <rect x="17" y="22" width="6" height="4" fill="white"/>
-      {/* Gold tie */}
       <polygon points="20,26 17.5,33 22.5,33" fill="#f59e0b"/>
       <rect x="19" y="33" width="2" height="4" rx="1" fill="#f59e0b"/>
-      {/* White outline stroke on jacket */}
       <path d="M8 38 C8 26 12 22 20 22 C28 22 32 26 32 38 Z" fill="none" stroke="white" strokeWidth="0.8"/>
     </svg>
   );
-
   // HOME
   if (showHome && !user) return (
     <div className="min-h-screen bg-slate-950">
@@ -1476,7 +1481,7 @@ export default function SpecterLSATApp() {
           </div>
         </div>
         {showPaywall&&<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"><div className="bg-slate-800 rounded-2xl max-w-md w-full p-8 shadow-2xl text-center"><Crown className="w-16 h-16 text-amber-500 mx-auto mb-4"/><h2 className="text-2xl font-bold text-slate-100 mb-2">Unlock Premium Explanations</h2><p className="text-slate-300 mb-6">Get detailed explanations for every answer</p><div className="bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl p-6 text-white mb-6"><div className="text-5xl font-bold">$25</div><div>per month</div></div><button onClick={()=>upgrade(true)} className="w-full bg-slate-800 text-white py-3 rounded-lg font-semibold hover:bg-slate-900 mb-3">Subscribe - $25/month</button><button onClick={()=>setShowPaywall(false)} className="w-full bg-gray-200 text-slate-200 py-3 rounded-lg font-semibold">Maybe Later</button></div></div>}
-        {showAccess&&<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"><div className="bg-slate-800 rounded-2xl max-w-lg w-full p-8 shadow-2xl"><div className="text-center mb-6"><Lock className="w-12 h-12 text-amber-600 mx-auto mb-3"/><h2 className="text-2xl font-bold text-slate-100">Choose Your Plan</h2></div><div className="grid grid-cols-2 gap-4 mb-4"><div className="border-2 border-slate-600 rounded-xl p-5"><div className="text-3xl font-bold mb-1">$20</div><div className="text-slate-400 text-sm mb-3">per month</div><div className="font-bold mb-3">Test Access</div><div className="space-y-2 text-sm mb-4"><div className="flex gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"/><span>All 2,600 questions</span></div><div className="flex gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"/><span>100 practice tests</span></div><div className="flex gap-2"><XCircle className="w-4 h-4 text-gray-300 flex-shrink-0 mt-0.5"/><span className="text-slate-500">No explanations</span></div></div><button onClick={()=>upgrade(false)} className="w-full bg-gray-800 text-white py-2 rounded-lg font-semibold hover:bg-gray-900 text-sm">Get Access</button></div><div className="border-2 border-amber-500 rounded-xl p-5 bg-slate-700 relative"><div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-xs px-3 py-1 rounded-full font-bold">BEST VALUE</div><div className="text-3xl font-bold mb-1">$25</div><div className="text-slate-400 text-sm mb-3">per month</div><div className="font-bold mb-3">Premium</div><div className="space-y-2 text-sm mb-4"><div className="flex gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"/><span>All 2,600 questions</span></div><div className="flex gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"/><span>100 practice tests</span></div><div className="flex gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"/><span className="font-semibold">Full explanations</span></div></div><button onClick={()=>upgrade(true)} className="w-full bg-slate-800 text-white py-2 rounded-lg font-semibold hover:bg-slate-900 text-sm">Get Premium</button></div></div><button onClick={()=>setShowAccess(false)} className="w-full text-slate-400 hover:text-slate-200 font-semibold">Maybe Later</button></div></div>}
+        {showAccess&&<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"><div className="bg-slate-800 rounded-2xl max-w-lg w-full p-8 shadow-2xl"><div className="text-center mb-6"><Lock className="w-12 h-12 text-amber-600 mx-auto mb-3"/><h2 className="text-2xl font-bold text-slate-100">Choose Your Plan</h2></div><div className="grid grid-cols-2 gap-4 mb-4"><div className="border-2 border-slate-600 rounded-xl p-5"><div className="text-3xl font-bold text-white mb-1">$20</div><div className="text-slate-300 text-sm mb-3">per month</div><div className="font-bold text-white mb-3">Test Access</div><div className="space-y-2 text-sm mb-4"><div className="flex gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"/><span className="text-slate-200">All 2,600 questions</span></div><div className="flex gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"/><span className="text-slate-200">100 practice tests</span></div><div className="flex gap-2"><XCircle className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5"/><span className="text-slate-400">No explanations</span></div></div><button onClick={()=>upgrade(false)} className="w-full bg-amber-400 text-slate-900 py-2 rounded-lg font-semibold hover:bg-amber-300 text-sm">Get Access</button></div><div className="border-2 border-amber-400 rounded-xl p-5 bg-slate-700 relative"><div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-slate-900 text-xs px-3 py-1 rounded-full font-bold">BEST VALUE</div><div className="text-3xl font-bold text-white mb-1">$25</div><div className="text-slate-300 text-sm mb-3">per month</div><div className="font-bold text-white mb-3">Premium</div><div className="space-y-2 text-sm mb-4"><div className="flex gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"/><span className="text-slate-200">All 2,600 questions</span></div><div className="flex gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"/><span className="text-slate-200">100 practice tests</span></div><div className="flex gap-2"><CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5"/><span className="font-semibold text-white">Full explanations</span></div></div><button onClick={()=>upgrade(true)} className="w-full bg-amber-400 text-slate-900 py-2 rounded-lg font-semibold hover:bg-amber-300 text-sm">Get Premium</button></div></div><button onClick={()=>setShowAccess(false)} className="w-full text-slate-400 hover:text-slate-200 font-semibold">Maybe Later</button></div></div>}
         {showAdmin && (
         <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 rounded-2xl max-w-lg w-full p-8 shadow-2xl">
